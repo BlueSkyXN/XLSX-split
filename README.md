@@ -1,11 +1,12 @@
-# XDB - 高性能Excel到SQLite/MySQL转换工具
+# XDB - 通用Excel/CSV到SQLite/MySQL转换工具
 
 ## 简介
 
-XDB是一款高性能、多功能的Excel数据导入工具，支持将Excel(XLSX)文件快速转换为SQLite或MySQL数据库。通过并行处理和智能类型映射，它能够高效处理大型Excel文件，同时提供灵活的字段映射和数据转换功能。
+XDB是一款高性能、多功能的Excel/CSV数据导入工具，支持将Excel(XLSX)文件或CSV文件快速转换为SQLite或MySQL数据库。通过并行处理和智能类型映射，它能够高效处理大型Excel和CSV文件，同时提供灵活的字段映射和数据转换功能。
 
 ## 主要特性
 
+- **多种文件格式支持**：支持Excel (XLSX)和CSV文件格式
 - **双数据库支持**：同时支持SQLite和MySQL作为目标数据库
 - **高性能处理**：多进程并行处理，显著提升大文件处理速度
 - **智能类型映射**：自动检测并优化字段类型，确保数据完整性
@@ -17,9 +18,10 @@ XDB是一款高性能、多功能的Excel数据导入工具，支持将Excel(XLS
   - 仅处理目标表已有字段
   - 自定义字段映射配置（支持重命名、过滤）
 - **数据转换**：支持转换规则（大小写、日期格式化、文本替换等）
-- **工作表处理**：支持处理单个或多个工作表
+- **工作表处理**：支持处理单个或多个工作表（Excel）/ 自动检测CSV格式
 - **自动索引创建**：基于智能规则自动创建索引提升查询性能
 - **自定义表名**：支持指定目标数据库表名，覆盖默认的工作表名映射方式
+- **CSV智能处理**：自动检测编码、分隔符、引号字符等CSV格式特征
 
 ## 设计原理
 
@@ -255,11 +257,11 @@ flowchart LR
 ### 依赖项
 
 ```
-pandas>=1.0.0
-openpyxl>=3.0.0
-tqdm>=4.45.0
+pandas>=2.0.0
+openpyxl>=3.1.0
+tqdm>=4.60.0
 pymysql>=1.0.0 (MySQL支持)
-psutil>=5.7.0
+psutil>=5.9.0
 ```
 
 ### 安装方法
@@ -272,7 +274,7 @@ cd xdb
 
 2. 安装依赖：
 ```bash
-pip install -r requirements.txt
+pip install pandas openpyxl tqdm pymysql psutil
 ```
 
 3. 确保脚本具有执行权限：
@@ -284,14 +286,26 @@ chmod +x XDB.py
 
 ### 转换为SQLite数据库
 
+Excel文件：
 ```bash
 python XDB.py sample.xlsx --db-type sqlite --sqlite-path output.db
 ```
 
+CSV文件：
+```bash
+python XDB.py data.csv --db-type sqlite --sqlite-path output.db
+```
+
 ### 转换为MySQL数据库
 
+Excel文件：
 ```bash
 python XDB.py sample.xlsx --db-type mysql --mysql-database mydb --mysql-user root
+```
+
+CSV文件：
+```bash
+python XDB.py data.csv --db-type mysql --mysql-database mydb --mysql-user root
 ```
 
 ### 指定目标表名
@@ -312,16 +326,36 @@ python XDB.py sample.xlsx --list-sheets
 python XDB.py sample.xlsx --db-type sqlite --sqlite-path output.db --sheet "Sheet1"
 ```
 
+### CSV文件特定选项
+
+指定CSV编码和分隔符：
+```bash
+python XDB.py data.csv --db-type sqlite --sqlite-path output.db --csv-encoding utf-8 --csv-separator ";"
+```
+
+处理无表头的CSV文件：
+```bash
+python XDB.py data.csv --db-type sqlite --sqlite-path output.db --csv-no-header
+```
+
 ## 高级用法
 
 ### 字段映射与转换
 
 自定义字段映射（重命名列）：
 
+Excel文件：
 ```bash
 python XDB.py sales.xlsx --db-type sqlite --sqlite-path sales.db \
   --field-mode mapping \
   --mapping "销售表:产品编号=product_id,销售额=revenue,销售日期=sale_date"
+```
+
+CSV文件：
+```bash
+python XDB.py sales.csv --db-type sqlite --sqlite-path sales.db \
+  --field-mode mapping \
+  --mapping "Sheet1:产品编号=product_id,销售额=revenue,销售日期=sale_date"
 ```
 
 使用映射文件：
@@ -385,7 +419,7 @@ python XDB.py large_file.xlsx --db-type sqlite --sqlite-path output.db \
 
 | 参数 | 描述 | 默认值 |
 |------|------|--------|
-| `excel_path` | Excel文件路径 | 必填 |
+| `file_path` | 输入文件路径 (Excel/CSV) | 必填 |
 | `--db-type` | 数据库类型 (`sqlite` 或 `mysql`) | `sqlite` |
 | `--sqlite-path` | SQLite数据库输出路径 | 使用SQLite时必填 |
 | `--mysql-host` | MySQL主机地址 | `localhost` |
@@ -393,6 +427,15 @@ python XDB.py large_file.xlsx --db-type sqlite --sqlite-path output.db \
 | `--mysql-user` | MySQL用户名 | `root` |
 | `--mysql-password` | MySQL密码 (不提供则交互式输入) | - |
 | `--mysql-database` | MySQL数据库名 | 使用MySQL时必填 |
+
+### CSV文件参数
+
+| 参数 | 描述 | 默认值 |
+|------|------|--------|
+| `--csv-encoding` | CSV文件编码 | 自动检测 |
+| `--csv-separator` | CSV分隔符 | 自动检测 |
+| `--csv-quotechar` | CSV引号字符 | `"` |
+| `--csv-no-header` | CSV文件没有表头 | `False` |
 
 ### 操作模式参数
 
@@ -495,6 +538,13 @@ python XDB.py 月度销售报表.xlsx --db-type mysql --mysql-database business_
   --mapping-file sales_mapping.json --target-table sales_data
 ```
 
+将CSV导出数据导入数据库：
+
+```bash
+python XDB.py export_data.csv --db-type mysql --mysql-database business_db \
+  --mysql-user reports --csv-encoding utf-8 --target-table imported_data
+```
+
 ### 场景2：数据整合与清理
 
 处理并整合多个工作表的数据，同时进行数据清理：
@@ -515,13 +565,27 @@ python XDB.py 新销售数据.xlsx --db-type mysql --mysql-database sales_db \
   --mode append --field-mode match-only --target-table monthly_sales
 ```
 
+追加CSV数据：
+
+```bash
+python XDB.py daily_sales.csv --db-type mysql --mysql-database sales_db \
+  --mode append --field-mode match-only --target-table daily_sales
+```
+
 ### 场景4：大文件处理
 
-处理包含数百万行的大型Excel文件：
+处理包含数百万行的大型文件：
 
+Excel文件：
 ```bash
 python XDB.py 大型数据集.xlsx --db-type sqlite --sqlite-path big_data.db \
   --workers 12 --chunk-size 100000 --target-table analytics_data
+```
+
+CSV文件：
+```bash
+python XDB.py large_dataset.csv --db-type sqlite --sqlite-path big_data.db \
+  --workers 12 --chunk-size 100000 --csv-encoding utf-8 --target-table analytics_data
 ```
 
 ### 场景5：多表关联导入
@@ -580,6 +644,12 @@ python XDB.py 企业数据.xlsx --db-type mysql --mysql-database company_db \
 
 **问题**：表名映射不生效  
 **解决方案**：检查表名映射语法，确保格式为`工作表名=数据库表名`
+
+**问题**：--list-sheets选项对CSV文件不工作  
+**解决方案**：--list-sheets选项仅适用于Excel文件，CSV文件只有一个默认工作表"Sheet1"
+
+**问题**：CSV文件字段映射语法  
+**解决方案**：CSV文件的字段映射应使用"Sheet1"作为工作表名，如：`--mapping "Sheet1:原列名=新列名"`
 
 **问题**：MySQL导入出现NaN错误  
 **解决方案**：最新版本已自动处理NaN值转换为NULL，无需手动干预
